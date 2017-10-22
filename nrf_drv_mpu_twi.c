@@ -16,9 +16,9 @@
  * and therefore I have added a conditional statement defining different pins
  * for each board. This is only for my own convenience. 
  */
-#if defined(BOARD_PCA10040)
-#define MPU_TWI_SCL_PIN 3
-#define MPU_TWI_SDA_PIN 4
+#if defined(BOARD_CUSTOM)
+#define MPU_TWI_SCL_PIN 13
+#define MPU_TWI_SDA_PIN 12
 #else
 #define MPU_TWI_SCL_PIN 1
 #define MPU_TWI_SDA_PIN 2

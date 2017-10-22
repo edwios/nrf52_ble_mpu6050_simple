@@ -90,7 +90,7 @@
 
 #define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2    /**< Reply when unsupported features are requested. */
 
-#define DEVICE_NAME                     "Nordic_Template"                       /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                     "SensorTag9255"                         /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS      180                                     /**< The advertising timeout in units of seconds. */
@@ -128,8 +128,8 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        
 static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
 
 /*UART buffer size. */
-#define UART_TX_BUF_SIZE 256
-#define UART_RX_BUF_SIZE 1
+#define UART_TX_BUF_SIZE 32
+#define UART_RX_BUF_SIZE 32
 
 ble_mpu_t m_mpu;
 bool start_accel_update_flag = false;
@@ -319,6 +319,7 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
 static void timers_init(void)
 {
     // Initialize timer module.
+    NRF_LOG_INFO("Initialising timer"); NRF_LOG_FLUSH();
     ret_code_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 
@@ -345,6 +346,7 @@ static void gap_params_init(void)
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
 
+    NRF_LOG_INFO("Initialising GAP params"); NRF_LOG_FLUSH();
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
     err_code = sd_ble_gap_device_name_set(&sec_mode,
@@ -372,6 +374,7 @@ static void gap_params_init(void)
  */
 static void gatt_init(void)
 {
+    NRF_LOG_INFO("Initialising GATT"); NRF_LOG_FLUSH();
     ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
     APP_ERROR_CHECK(err_code);
 }
@@ -434,12 +437,15 @@ static void services_init(void)
     ret_code_t  err_code;
     ble_nus_init_t nus_init;
 
+    NRF_LOG_INFO("Initialising Services"); NRF_LOG_FLUSH();
     memset(&nus_init, 0, sizeof(nus_init));
 
     nus_init.data_handler = nus_data_handler;
-    nus_init.data_handler = nus_data_handler;
     err_code = ble_nus_init(&m_nus, &nus_init);
+    NRF_LOG_INFO("Initialising Services error %d", err_code); NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("OK Services init"); NRF_LOG_FLUSH();
+    
 }
 
 
@@ -482,6 +488,7 @@ static void conn_params_init(void)
     ret_code_t             err_code;
     ble_conn_params_init_t cp_init;
 
+    NRF_LOG_INFO("Initialising CONN"); NRF_LOG_FLUSH();
     memset(&cp_init, 0, sizeof(cp_init));
 
     cp_init.p_conn_params                  = NULL;
@@ -674,6 +681,7 @@ static void ble_stack_init(void)
 {
     ret_code_t err_code;
 
+    NRF_LOG_INFO("Initialising BLE Stack"); NRF_LOG_FLUSH();
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
 
@@ -699,6 +707,7 @@ static void peer_manager_init(void)
     ble_gap_sec_params_t sec_param;
     ret_code_t           err_code;
 
+    NRF_LOG_INFO("Initialising Peer Manager"); NRF_LOG_FLUSH();
     err_code = pm_init();
     APP_ERROR_CHECK(err_code);
 
@@ -786,6 +795,7 @@ static void advertising_init(void)
     ret_code_t             err_code;
     ble_advertising_init_t init;
 
+    NRF_LOG_INFO("Initialising Advertising"); NRF_LOG_FLUSH();
     memset(&init, 0, sizeof(init));
 
     init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
@@ -816,12 +826,15 @@ static void buttons_leds_init(bool * p_erase_bonds)
     ret_code_t err_code;
     bsp_event_t startup_event;
 
+    NRF_LOG_INFO("Initialising bsp"); NRF_LOG_FLUSH();
     err_code = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS, bsp_event_handler);
     APP_ERROR_CHECK(err_code);
 
+    NRF_LOG_INFO("Initialising BTN BLE"); NRF_LOG_FLUSH();
     err_code = bsp_btn_ble_init(NULL, &startup_event);
     APP_ERROR_CHECK(err_code);
 
+    NRF_LOG_INFO("Clearing bonds"); NRF_LOG_FLUSH();
     *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
@@ -920,6 +933,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 /**@brief  Function for initializing the UART module.
  */
 /**@snippet [UART Initialization] */
+
 static void uart_init(void)
 {
     uint32_t                     err_code;
@@ -933,15 +947,19 @@ static void uart_init(void)
         .use_parity   = false,
         .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud115200
     };
-
+//    nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
+//    nrf_gpio_cfg_output(TX_PIN_NUMBER);
+    NRF_LOG_INFO("Initialising UART"); NRF_LOG_FLUSH();
     APP_UART_FIFO_INIT(&comm_params,
                        UART_RX_BUF_SIZE,
                        UART_TX_BUF_SIZE,
                        uart_event_handle,
                        APP_IRQ_PRIORITY_LOWEST,
                        err_code);
+    NRF_LOG_INFO("Initialising UART error %d", err_code); NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
 }
+
 /**@snippet [UART Initialization] */
 
 
@@ -949,6 +967,7 @@ void mpu_setup(void)
 {
     ret_code_t ret_code;
     // Initiate MPU driver
+    NRF_LOG_INFO("Initialising MPU9255"); NRF_LOG_FLUSH();
     ret_code = mpu_init();
     APP_ERROR_CHECK(ret_code); // Check for errors in return value
     
@@ -967,27 +986,28 @@ int main(void)
 {
     bool erase_bonds;
 
+    // Initialize.
     LEDS_CONFIGURE(LEDS_MASK);
     LEDS_OFF(LEDS_MASK);
-    uart_init();
-    NRF_LOG_INFO("\033[2J\033[;HMPU BLE simple example. Compiled @ %s.\r\n", __TIME__);
-
-    // Initialize.
     log_init();
+    NRF_LOG_INFO("\033[2J\033[;HMPU BLE simple example. Compiled @ %s.\r\n", nrf_log_push(__TIME__));
+    NRF_LOG_FLUSH();
+    uart_init();
     timers_init();
     buttons_leds_init(&erase_bonds);
     ble_stack_init();
     gap_params_init();
     gatt_init();
-    advertising_init();
     services_init();
+    advertising_init();
     conn_params_init();
     peer_manager_init();
 
     mpu_setup();
 
     // Start execution.
-    NRF_LOG_INFO("Template example started.");
+    NRF_LOG_INFO("%s", nrf_log_push("SensorTag9255 started."));
+    NRF_LOG_FLUSH();
     application_timers_start();
 
     advertising_start(erase_bonds);
@@ -1005,9 +1025,11 @@ int main(void)
                 mpu_read_accel(&accel_values);
                 NRF_LOG_INFO("\033[2J\033[;HAccel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
                 NRF_LOG_INFO("Accel: %#02x, %#02x, %#02x, %#02x, %#02x, %#02x\r\n", (uint8_t)(accel_values.x >> 8), (uint8_t)accel_values.x, (uint8_t)(accel_values.y >> 8), (uint8_t)accel_values.y, (uint8_t)(accel_values.z >> 8), (uint8_t)accel_values.z);
+                NRF_LOG_FLUSH();
                 ble_mpu_update(&m_mpu, &accel_values);
                 start_accel_update_flag = false;
-                nrf_gpio_pin_toggle(LED_4);
+                nrf_gpio_pin_toggle(LED_1);
+                NRF_LOG_FLUSH();
             }
         }
     }
