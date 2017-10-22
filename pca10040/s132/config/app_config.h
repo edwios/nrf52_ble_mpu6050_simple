@@ -10,6 +10,9 @@
 #define BLE_NUS_ENABLED 1
 #define NRF_FSTORAGE_ENABLED 1
 
+#define BLE_HTS_ENABLED 1
+#define BLE_DIS_ENABLED 1
+
 #define TWI_ENABLED 1
 #define TWI0_ENABLED 1
 #define TWI0_USE_EASY_DMA 1
@@ -35,7 +38,7 @@
 #define NRF_LOG_ENABLED 1
 #define NRF_LOG_DEFERRED 0
 #define NRF_SDH_BLE_LOG_ENABLED 1
-#define NRF_SDH_BLE_VS_UUID_COUNT 1
+#define NRF_SDH_BLE_VS_UUID_COUNT 5			// Must observe the number of vendor specific services
 #define NRF_SDH_LOG_ENABLED 1
 #define NRF_SDH_SOC_LOG_ENABLED 1
 #define NRF_LOG_DEFAULT_LEVEL 4

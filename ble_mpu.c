@@ -12,6 +12,10 @@
 #include "app_error.h"
 #include "app_mpu.h"
 
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
 
 void ble_mpu_on_ble_evt(ble_mpu_t * p_mpu, ble_evt_t * p_ble_evt)
 {
@@ -68,6 +72,7 @@ static uint32_t ble_char_accel_add(ble_mpu_t * p_mpu)
     uint8_t value[6]            = {0};
     attr_char_value.p_value     = value;
 
+//    NRF_LOG_DEBUG("ble_char_accel_add: add gatt char"); NRF_LOG_FLUSH();
     err_code = sd_ble_gatts_characteristic_add(p_mpu->service_handle,
                                        &char_md,
                                        &attr_char_value,

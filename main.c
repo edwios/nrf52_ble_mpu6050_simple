@@ -74,6 +74,8 @@
 //#include "sensorsim.h"
 #include "ble_conn_state.h"
 #include "ble_nus.h"
+#include "ble_hts.h"
+#include "ble_dis.h"
 #include "nrf_ble_gatt.h"
 #include "bsp.h"
 #include "boards.h"
@@ -91,7 +93,11 @@
 #define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2    /**< Reply when unsupported features are requested. */
 
 #define DEVICE_NAME                     "SensorTag9255"                         /**< Name of device. Will be included in the advertising data. */
-#define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
+#define MANUFACTURER_NAME               "ioStation Ltd."                        /**< Manufacturer. Will be passed to Device Information Service. */
+#define MODEL_NUM                       "HYP-AT1A"                              /**< Model number. Will be passed to Device Information Service. */
+#define MANUFACTURER_ID                 0x6c80172535                            /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
+#define ORG_UNIQUE_ID                   0x10001a                                /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
+
 #define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS      180                                     /**< The advertising timeout in units of seconds. */
 
@@ -116,16 +122,20 @@
 #define SEC_PARAM_MIN_KEY_SIZE          7                                       /**< Minimum encryption key size. */
 #define SEC_PARAM_MAX_KEY_SIZE          16                                      /**< Maximum encryption key size. */
 
+#define TEMP_TYPE_AS_CHARACTERISTIC     0                                           /**< Determines if temperature type is given as characteristic (1) or as a field of measurement (0). */
+
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
 BLE_NUS_DEF(m_nus);                                                             /**< BLE NUS service instance. */
+BLE_HTS_DEF(m_hts);                                                                 /**< Structure used to identify the health thermometer service. */
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
 APP_TIMER_DEF(m_timer_accel_update_id);
-#define TIMER_INTERVAL_ACCEL_UPDATE     APP_TIMER_TICKS(1000)                   // 1000 ms intervals
+#define TIMER_INTERVAL_ACCEL_UPDATE     APP_TIMER_TICKS(100)                   // 1000 ms intervals
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
+static bool              m_hts_meas_ind_conf_pending = false;                       /**< Flag to keep track of when an indication confirmation is pending. */
 
 /*UART buffer size. */
 #define UART_TX_BUF_SIZE 32
@@ -133,6 +143,7 @@ static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;        
 
 ble_mpu_t m_mpu;
 bool start_accel_update_flag = false;
+temp_value_t m_temp_value;
 
 /* YOUR_JOB: Declare all services structure your application is using
  *  BLE_XYZ_DEF(m_xyz);
@@ -141,6 +152,9 @@ bool start_accel_update_flag = false;
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
+    {BLE_UUID_HEALTH_THERMOMETER_SERVICE, BLE_UUID_TYPE_BLE},
+    {BLE_UUID_MPU_SERVICE_UUID, BLE_UUID_TYPE_BLE},
+    {BLE_UUID_ACCEL_CHARACTERISTC_UUID, BLE_UUID_TYPE_BLE},
     {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
 };
 
@@ -150,6 +164,8 @@ void timer_accel_update_handler(void * p_context)
 }
 
 static void advertising_start(bool erase_bonds);
+static void temperature_measurement_send(void);
+static void on_hts_evt(ble_hts_t * p_hts, ble_hts_evt_t * p_evt);
 
 
 /**@brief Callback function for asserts in the SoftDevice.
@@ -176,6 +192,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 static void pm_evt_handler(pm_evt_t const * p_evt)
 {
     ret_code_t err_code;
+    bool       is_indication_enabled;
 
     switch (p_evt->evt_id)
     {
@@ -190,6 +207,16 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
                          ble_conn_state_role(p_evt->conn_handle),
                          p_evt->conn_handle,
                          p_evt->params.conn_sec_succeeded.procedure);
+
+            // Send a single temperature measurement if indication is enabled.
+            // NOTE: For this to work, make sure ble_hts_on_ble_evt() is called before
+            // pm_evt_handler() in ble_evt_dispatch().
+            err_code = ble_hts_is_indication_enabled(&m_hts, &is_indication_enabled);
+            APP_ERROR_CHECK(err_code);
+            if (is_indication_enabled)
+            {
+                temperature_measurement_send();
+            }
         } break;
 
         case PM_EVT_CONN_SEC_FAILED:
@@ -319,7 +346,7 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
 static void timers_init(void)
 {
     // Initialize timer module.
-    NRF_LOG_INFO("Initialising timer"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising timer"); NRF_LOG_FLUSH();
     ret_code_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 
@@ -346,7 +373,7 @@ static void gap_params_init(void)
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
 
-    NRF_LOG_INFO("Initialising GAP params"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising GAP params"); NRF_LOG_FLUSH();
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
     err_code = sd_ble_gap_device_name_set(&sec_mode,
@@ -374,7 +401,7 @@ static void gap_params_init(void)
  */
 static void gatt_init(void)
 {
-    NRF_LOG_INFO("Initialising GATT"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising GATT"); NRF_LOG_FLUSH();
     ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
     APP_ERROR_CHECK(err_code);
 }
@@ -436,16 +463,118 @@ static void services_init(void)
 
     ret_code_t  err_code;
     ble_nus_init_t nus_init;
+    ble_hts_init_t   hts_init;
+    ble_dis_init_t   dis_init;
+    ble_dis_sys_id_t sys_id;
 
-    NRF_LOG_INFO("Initialising Services"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising Services"); NRF_LOG_FLUSH();
     memset(&nus_init, 0, sizeof(nus_init));
 
     nus_init.data_handler = nus_data_handler;
     err_code = ble_nus_init(&m_nus, &nus_init);
-    NRF_LOG_INFO("Initialising Services error %d", err_code); NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("OK Services init"); NRF_LOG_FLUSH();
+    ble_mpu_service_init(&m_mpu);
     
+    // Initialize Health Thermometer Service
+    memset(&hts_init, 0, sizeof(hts_init));
+
+    hts_init.evt_handler                 = on_hts_evt;
+    hts_init.temp_type_as_characteristic = TEMP_TYPE_AS_CHARACTERISTIC;
+    hts_init.temp_type                   = BLE_HTS_TEMP_TYPE_BODY;
+
+    // Here the sec level for the Health Thermometer Service can be changed/increased.
+    BLE_GAP_CONN_SEC_MODE_SET_ENC_NO_MITM(&hts_init.hts_meas_attr_md.cccd_write_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hts_init.hts_meas_attr_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hts_init.hts_meas_attr_md.write_perm);
+
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&hts_init.hts_temp_type_attr_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hts_init.hts_temp_type_attr_md.write_perm);
+
+    err_code = ble_hts_init(&m_hts, &hts_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize Device Information Service.
+    memset(&dis_init, 0, sizeof(dis_init));
+
+    ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, MANUFACTURER_NAME);
+    ble_srv_ascii_to_utf8(&dis_init.model_num_str, MODEL_NUM);
+
+    sys_id.manufacturer_id            = MANUFACTURER_ID;
+    sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
+    dis_init.p_sys_id                 = &sys_id;
+
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&dis_init.dis_attr_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init.dis_attr_md.write_perm);
+
+    err_code = ble_dis_init(&dis_init);
+    APP_ERROR_CHECK(err_code);
+}
+
+
+/**@brief Function for simulating and sending one Temperature Measurement.
+ */
+static void temperature_measurement_send(void)
+{
+    ble_hts_meas_t temp_meas;
+    ret_code_t     err_code;
+
+    if (!m_hts_meas_ind_conf_pending)
+    {
+//        hts_sim_measurement(&simulated_meas);
+
+        temp_meas.temp_in_fahr_units       = false;
+        temp_meas.time_stamp_present       = false;
+        temp_meas.temp_in_celcius.exponent = -2;
+        temp_meas.temp_in_celcius.mantissa = m_temp_value;
+        temp_meas.temp_in_fahr.exponent    = -2;
+        temp_meas.temp_in_fahr.mantissa    = (32 * 100) + ((m_temp_value * 9) / 5);
+        temp_meas.temp_type                = BLE_HTS_TEMP_TYPE_FINGER;
+        err_code = ble_hts_measurement_send(&m_hts, &temp_meas);
+
+        switch (err_code)
+        {
+            case NRF_SUCCESS:
+                // Measurement was successfully sent, wait for confirmation.
+                m_hts_meas_ind_conf_pending = true;
+                break;
+
+            case NRF_ERROR_INVALID_STATE:
+                // Ignore error.
+                break;
+
+            default:
+                APP_ERROR_HANDLER(err_code);
+                break;
+        }
+    }
+}
+
+
+/**@brief Function for handling the Health Thermometer Service events.
+ *
+ * @details This function will be called for all Health Thermometer Service events which are passed
+ *          to the application.
+ *
+ * @param[in] p_hts  Health Thermometer Service structure.
+ * @param[in] p_evt  Event received from the Health Thermometer Service.
+ */
+static void on_hts_evt(ble_hts_t * p_hts, ble_hts_evt_t * p_evt)
+{
+    switch (p_evt->evt_type)
+    {
+        case BLE_HTS_EVT_INDICATION_ENABLED:
+            // Indication has been enabled, send a single temperature measurement
+            temperature_measurement_send();
+            break;
+
+        case BLE_HTS_EVT_INDICATION_CONFIRMED:
+            m_hts_meas_ind_conf_pending = false;
+            break;
+
+        default:
+            // No implementation needed.
+            break;
+    }
 }
 
 
@@ -488,7 +617,7 @@ static void conn_params_init(void)
     ret_code_t             err_code;
     ble_conn_params_init_t cp_init;
 
-    NRF_LOG_INFO("Initialising CONN"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising CONN"); NRF_LOG_FLUSH();
     memset(&cp_init, 0, sizeof(cp_init));
 
     cp_init.p_conn_params                  = NULL;
@@ -591,6 +720,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             NRF_LOG_INFO("Disconnected.");
             err_code = bsp_indication_set(BSP_INDICATE_IDLE);
             APP_ERROR_CHECK(err_code);
+            m_mpu.conn_handle = BLE_CONN_HANDLE_INVALID;
             application_timers_stop();
             break;
 
@@ -599,6 +729,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+            m_mpu.conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             application_timers_start();
             break;
 
@@ -681,7 +812,7 @@ static void ble_stack_init(void)
 {
     ret_code_t err_code;
 
-    NRF_LOG_INFO("Initialising BLE Stack"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising BLE Stack"); NRF_LOG_FLUSH();
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
 
@@ -707,7 +838,7 @@ static void peer_manager_init(void)
     ble_gap_sec_params_t sec_param;
     ret_code_t           err_code;
 
-    NRF_LOG_INFO("Initialising Peer Manager"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising Peer Manager"); NRF_LOG_FLUSH();
     err_code = pm_init();
     APP_ERROR_CHECK(err_code);
 
@@ -792,10 +923,10 @@ static void bsp_event_handler(bsp_event_t event)
  */
 static void advertising_init(void)
 {
-    ret_code_t             err_code;
-    ble_advertising_init_t init;
+    ret_code_t              err_code;
+    ble_advertising_init_t  init;
 
-    NRF_LOG_INFO("Initialising Advertising"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising Advertising"); NRF_LOG_FLUSH();
     memset(&init, 0, sizeof(init));
 
     init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
@@ -826,15 +957,13 @@ static void buttons_leds_init(bool * p_erase_bonds)
     ret_code_t err_code;
     bsp_event_t startup_event;
 
-    NRF_LOG_INFO("Initialising bsp"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising bsp"); NRF_LOG_FLUSH();
     err_code = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS, bsp_event_handler);
     APP_ERROR_CHECK(err_code);
 
-    NRF_LOG_INFO("Initialising BTN BLE"); NRF_LOG_FLUSH();
     err_code = bsp_btn_ble_init(NULL, &startup_event);
     APP_ERROR_CHECK(err_code);
 
-    NRF_LOG_INFO("Clearing bonds"); NRF_LOG_FLUSH();
     *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
@@ -949,14 +1078,13 @@ static void uart_init(void)
     };
 //    nrf_gpio_cfg_input(RX_PIN_NUMBER, NRF_GPIO_PIN_PULLUP);
 //    nrf_gpio_cfg_output(TX_PIN_NUMBER);
-    NRF_LOG_INFO("Initialising UART"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising UART"); NRF_LOG_FLUSH();
     APP_UART_FIFO_INIT(&comm_params,
                        UART_RX_BUF_SIZE,
                        UART_TX_BUF_SIZE,
                        uart_event_handle,
                        APP_IRQ_PRIORITY_LOWEST,
                        err_code);
-    NRF_LOG_INFO("Initialising UART error %d", err_code); NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
 }
 
@@ -967,7 +1095,7 @@ void mpu_setup(void)
 {
     ret_code_t ret_code;
     // Initiate MPU driver
-    NRF_LOG_INFO("Initialising MPU9255"); NRF_LOG_FLUSH();
+    NRF_LOG_DEBUG("Initialising MPU9255"); NRF_LOG_FLUSH();
     ret_code = mpu_init();
     APP_ERROR_CHECK(ret_code); // Check for errors in return value
     
@@ -1012,8 +1140,13 @@ int main(void)
 
     advertising_start(erase_bonds);
 
-    accel_values_t accel_values;
+    accel_values_t accel_values, last_accel_values;
+    gyro_values_t gyro_values;
+    unsigned long delta_accel=0;
 
+    nrf_gpio_pin_toggle(LED_3);
+
+    last_accel_values.x=last_accel_values.y=last_accel_values.z=0;
     // Enter main loop.
     for (;;)
     {
@@ -1023,12 +1156,22 @@ int main(void)
             if(start_accel_update_flag == true)
             {
                 mpu_read_accel(&accel_values);
-                NRF_LOG_INFO("\033[2J\033[;HAccel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
-                NRF_LOG_INFO("Accel: %#02x, %#02x, %#02x, %#02x, %#02x, %#02x\r\n", (uint8_t)(accel_values.x >> 8), (uint8_t)accel_values.x, (uint8_t)(accel_values.y >> 8), (uint8_t)accel_values.y, (uint8_t)(accel_values.z >> 8), (uint8_t)accel_values.z);
+                mpu_read_gyro(&gyro_values);
+                mpu_read_temp(&m_temp_value);
+                delta_accel = ((accel_values.x-last_accel_values.x)*(accel_values.x-last_accel_values.x))+((accel_values.y-last_accel_values.y)*(accel_values.y-last_accel_values.y))+((accel_values.z-last_accel_values.z)*(accel_values.z-last_accel_values.z));
+                last_accel_values = accel_values;
+//                NRF_LOG_INFO("\033[2J\033[;HAccel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
+                NRF_LOG_INFO("Accel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
+                NRF_LOG_INFO("Delta: %d", delta_accel); 
+                NRF_LOG_INFO("Gyro: %05d, %05d, %05d\r\n", gyro_values.x, gyro_values.y, gyro_values.z);
+                NRF_LOG_INFO("Temperature: %05d\r\n", m_temp_value);
+//                NRF_LOG_INFO("Accel: %02x, %02x, %02x, %02x, %02x, %02x\r\n", (uint8_t)(accel_values.x >> 8), (uint8_t)accel_values.x, (uint8_t)(accel_values.y >> 8), (uint8_t)accel_values.y, (uint8_t)(accel_values.z >> 8), (uint8_t)accel_values.z);
                 NRF_LOG_FLUSH();
                 ble_mpu_update(&m_mpu, &accel_values);
                 start_accel_update_flag = false;
                 nrf_gpio_pin_toggle(LED_1);
+                if (delta_accel> 1000000)
+                    nrf_gpio_pin_toggle(LED_3);
                 NRF_LOG_FLUSH();
             }
         }
