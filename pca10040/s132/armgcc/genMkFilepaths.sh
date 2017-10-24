@@ -1,6 +1,19 @@
 #!/bin/bash
 
-# Script to generate SRC_FILES and INC_FOLDERS in Makefile
+# Script to generate SRC_FILES and INC_FOLDERS for armgcc Makefile
+# 
+# This is a simple bash script to generate the missing .c and include
+# directories to be inserted into the Makefile for armgcc
+# to be used for compiling nRF5 SDK projects.
+#
+# It works by looking into the app_config.h and find those enabled
+# nRF_CONFIG marcos and try to seek the corresponding .c files in the
+# ${SDK}/components/ directory.
+# 
+# Any matches will be check against the existing Makefile and if absent,
+# results in two output lines containing the include
+# (.h) path and the .c path.
+#
 #
 # Require:
 # 		app_config.h
@@ -32,8 +45,6 @@ for i in $FILES; do
 		CPATH=`find $SDK_ROOT -name "app_$j" -print`
 	fi
 	if [ "$CPATH" != "" ]; then
-#		SRC_FILE="${SRC_FILE} `echo $CPATH | sed -e \"s#^$SDK_ROOT#\$\(SDK_ROOT\)#\"`"
-#		INC_FOLDERS="${INC_FOLDERS} `dirname $CPATH | sed -e \"s#^$SDK_ROOT#\$\(SDK_ROOT\)#\"`"
 		SRC_FILE=`echo $CPATH | sed -e "s#^$SDK_ROOT#\$\(SDK_ROOT\)#"`
 		INC_FOLDER=`dirname $CPATH | sed -e "s#^$SDK_ROOT#\$\(SDK_ROOT\)#"`
 		if ! fgrep -q "$SRC_FILE" Makefile; then
