@@ -520,15 +520,13 @@ static void temperature_measurement_send(void)
 
     if (!m_hts_meas_ind_conf_pending)
     {
-//        hts_sim_measurement(&simulated_meas);
-
         temp_meas.temp_in_fahr_units       = false;
         temp_meas.time_stamp_present       = false;
         temp_meas.temp_in_celcius.exponent = -2;
-        temp_meas.temp_in_celcius.mantissa = m_temp_value;
+        temp_meas.temp_in_celcius.mantissa = (int32_t)m_temp_value;
         temp_meas.temp_in_fahr.exponent    = -2;
         temp_meas.temp_in_fahr.mantissa    = (32 * 100) + ((m_temp_value * 9) / 5);
-        temp_meas.temp_type                = BLE_HTS_TEMP_TYPE_FINGER;
+        temp_meas.temp_type                = BLE_HTS_TEMP_TYPE_BODY;
         err_code = ble_hts_measurement_send(&m_hts, &temp_meas);
 
         switch (err_code)
@@ -1126,8 +1124,8 @@ int main(void)
     ble_stack_init();
     gap_params_init();
     gatt_init();
-    services_init();
     advertising_init();
+    services_init();
     conn_params_init();
     peer_manager_init();
 

@@ -3294,11 +3294,11 @@
 
 // </e>
 
-// <q> APP_TWI_ENABLED  - app_twi - TWI transaction manager
+// <q> NRF_TWI_MNGR_ENABLED  - nrf_twi_mngr - TWI transaction manager
  
 
-#ifndef APP_TWI_ENABLED
-#define APP_TWI_ENABLED 0
+#ifndef NRF_TWI_MNGR_ENABLED
+#define NRF_TWI_MNGR_ENABLED 0
 #endif
 
 // <e> APP_UART_ENABLED - app_uart - UART driver

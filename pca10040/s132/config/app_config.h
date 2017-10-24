@@ -20,6 +20,7 @@
 #define SPI_ENABLED 1
 #define SPI0_ENABLED 1
 #define SPI1_ENABLED 1
+#define NRF_SPI_DRV_MISO_PULLUP_CFG 3		// Need to configure from 14.1
 
 #define TIMER_ENABLED 1
 #define TIMER0_ENABLED 1
@@ -32,6 +33,7 @@
 #define BUTTON_ENABLED 1
 
 #define NRF_CLI_ENABLED 1
+#define NRF_CLI_ECHO_STATUS 1				// Need to configure from 14.1
 #define NRF_LOG_BACKEND_SERIAL_USES_RTT 1
 #define NRF_LOG_BACKEND_UART_ENABLED 0		// Must be disabled or uart_init() will fail with err_code 8
 #define NRF_LOG_BACKEND_RTT_ENABLED 1
