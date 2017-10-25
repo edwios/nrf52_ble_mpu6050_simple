@@ -88,7 +88,8 @@
 #include "app_util_platform.h"
 #include "app_mpu.h"
 #include "ble_mpu.h"
-
+#include "app_ltr329.h"
+#include "ble_ltr329.h"
 
 #define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2    /**< Reply when unsupported features are requested. */
 
@@ -131,7 +132,7 @@ BLE_HTS_DEF(m_hts);                                                             
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
 APP_TIMER_DEF(m_timer_accel_update_id);
-#define TIMER_INTERVAL_ACCEL_UPDATE     APP_TIMER_TICKS(100)                   // 1000 ms intervals
+#define TIMER_INTERVAL_ACCEL_UPDATE     APP_TIMER_TICKS(1000)                   // 1000 ms intervals
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
@@ -142,8 +143,10 @@ static bool              m_hts_meas_ind_conf_pending = false;                   
 #define UART_RX_BUF_SIZE 32
 
 ble_mpu_t m_mpu;
+ble_ltr329_t m_ltr329;
 bool start_accel_update_flag = false;
 temp_value_t m_temp_value;
+ltr329_ambient_values_t m_ambient;
 
 /* YOUR_JOB: Declare all services structure your application is using
  *  BLE_XYZ_DEF(m_xyz);
@@ -155,7 +158,8 @@ static ble_uuid_t m_adv_uuids[] =                                               
     {BLE_UUID_HEALTH_THERMOMETER_SERVICE, BLE_UUID_TYPE_BLE},
     {BLE_UUID_MPU_SERVICE_UUID, BLE_UUID_TYPE_BLE},
     {BLE_UUID_ACCEL_CHARACTERISTC_UUID, BLE_UUID_TYPE_BLE},
-    {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
+    {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE},
+    {BLE_UUID_AMBIENTLIGHT_SERVICE_UUID, BLE_UUID_TYPE_BLE}
 };
 
 void timer_accel_update_handler(void * p_context)
@@ -474,6 +478,7 @@ static void services_init(void)
     err_code = ble_nus_init(&m_nus, &nus_init);
     APP_ERROR_CHECK(err_code);
     ble_mpu_service_init(&m_mpu);
+    ble_ltr329_service_init(&m_ltr329);
     
     // Initialize Health Thermometer Service
     memset(&hts_init, 0, sizeof(hts_init));
@@ -719,6 +724,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             err_code = bsp_indication_set(BSP_INDICATE_IDLE);
             APP_ERROR_CHECK(err_code);
             m_mpu.conn_handle = BLE_CONN_HANDLE_INVALID;
+            m_ltr329.conn_handle = BLE_CONN_HANDLE_INVALID;
             application_timers_stop();
             break;
 
@@ -728,6 +734,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             m_mpu.conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+            m_ltr329.conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             application_timers_start();
             break;
 
@@ -1130,6 +1137,9 @@ int main(void)
     peer_manager_init();
 
     mpu_setup();
+    ltr329_init();
+    ltr329_config();
+    ltr329_config_activate();
 
     // Start execution.
     NRF_LOG_INFO("%s", nrf_log_push("SensorTag9255 started."));
@@ -1156,6 +1166,10 @@ int main(void)
                 mpu_read_accel(&accel_values);
                 mpu_read_gyro(&gyro_values);
                 mpu_read_temp(&m_temp_value);
+                if (ltr329_has_new_data()) {
+                    ltr329_read_ambient(&m_ambient);
+                    NRF_LOG_INFO("Ambient: Vis %d, IR %d", m_ambient.ambient_visible_value, m_ambient.ambient_ir_value);
+                }
                 delta_accel = ((accel_values.x-last_accel_values.x)*(accel_values.x-last_accel_values.x))+((accel_values.y-last_accel_values.y)*(accel_values.y-last_accel_values.y))+((accel_values.z-last_accel_values.z)*(accel_values.z-last_accel_values.z));
                 last_accel_values = accel_values;
 //                NRF_LOG_INFO("\033[2J\033[;HAccel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
@@ -1166,6 +1180,7 @@ int main(void)
 //                NRF_LOG_INFO("Accel: %02x, %02x, %02x, %02x, %02x, %02x\r\n", (uint8_t)(accel_values.x >> 8), (uint8_t)accel_values.x, (uint8_t)(accel_values.y >> 8), (uint8_t)accel_values.y, (uint8_t)(accel_values.z >> 8), (uint8_t)accel_values.z);
                 NRF_LOG_FLUSH();
                 ble_mpu_update(&m_mpu, &accel_values);
+                ble_ltr329_update(&m_ltr329, &m_ambient);
                 start_accel_update_flag = false;
                 nrf_gpio_pin_toggle(LED_1);
                 if (delta_accel> 1000000)

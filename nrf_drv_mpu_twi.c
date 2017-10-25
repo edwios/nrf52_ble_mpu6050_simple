@@ -88,7 +88,7 @@ uint32_t nrf_drv_mpu_init(void)
     };
     
     err_code = nrf_drv_twi_init(&m_twi_instance, &twi_mpu_config, nrf_drv_mpu_twi_event_handler, NULL);
-    if(err_code != NRF_SUCCESS)
+    if(err_code != NRF_SUCCESS && err_code != NRF_ERROR_INVALID_STATE)
 	{
 		return err_code;
 	}

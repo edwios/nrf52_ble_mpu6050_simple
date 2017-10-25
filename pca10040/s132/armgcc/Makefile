@@ -55,6 +55,9 @@ SRC_FILES += \
   $(PROJ_DIR)/main.c \
   $(PROJ_DIR)/app_mpu.c \
   $(PROJ_DIR)/ble_mpu.c \
+  $(PROJ_DIR)/app_ltr329.c \
+  $(PROJ_DIR)/ble_ltr329.c \
+  $(PROJ_DIR)/nrf_drv_ltr329_twi.c \
   $(PROJ_DIR)/nrf_drv_mpu_spi.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_Syscalls_GCC.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT.c \

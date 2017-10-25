@@ -109,10 +109,10 @@ extern "C" {
 #define SPIM1_MISO_PIN  30   // SPI Master In Slave Out GPIO pin number.
 #define SPIM1_SS_PIN    31   // SPI Slave Select GPIO pin number.
 
-#define SPIM2_SCK_PIN   12  // SPI clock GPIO pin number.
-#define SPIM2_MOSI_PIN  13  // SPI Master Out Slave In GPIO pin number.
-#define SPIM2_MISO_PIN  14  // SPI Master In Slave Out GPIO pin number.
-#define SPIM2_SS_PIN    15  // SPI Slave Select GPIO pin number.
+#define SPIM2_SCK_PIN   28  // SPI clock GPIO pin number.
+#define SPIM2_MOSI_PIN  29  // SPI Master Out Slave In GPIO pin number.
+#define SPIM2_MISO_PIN  30  // SPI Master In Slave Out GPIO pin number.
+#define SPIM2_SS_PIN    31  // SPI Slave Select GPIO pin number.
 
 // serialization APPLICATION board - temp. setup for running serialized MEMU tests
 #define SER_APP_RX_PIN              17    // UART RX pin number.

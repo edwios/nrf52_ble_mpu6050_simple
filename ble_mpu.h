@@ -11,10 +11,9 @@
 #include "ble.h"
 #include "ble_srv_common.h"
 #include "app_mpu.h"
+#include "ble_common_items.h"
 
-#define BLE_UUID_BASE_UUID             	{0x5F, 0xE9, 0x18, 0xEE, 0x5F, 0x79, 0x23, 0x15, 0xDE, 0x8B, 0x72, 0x06, 0x00, 0x00, 0x00, 0x00} // 128-bit base UUID
 #define BLE_UUID_MPU_SERVICE_UUID                0xF00D // Just a random, but recognizable value
-
 #define BLE_UUID_ACCEL_CHARACTERISTC_UUID          0xACCE // Just a random, but recognizable value
 
 typedef struct
