@@ -97,11 +97,8 @@ uint32_t nrf_drv_ltr329_init(void)
 	{
         NRF_LOG_DEBUG("TWI init error %d", err_code); NRF_LOG_FLUSH();
 		return err_code;
-	}
-    NRF_LOG_DEBUG("TWI init done"); NRF_LOG_FLUSH();
-    
+	}    
     nrf_drv_twi_enable(&m_twi_instance);
-    NRF_LOG_DEBUG("TWI Enabled"); NRF_LOG_FLUSH();
 	
 	return NRF_SUCCESS;
 }

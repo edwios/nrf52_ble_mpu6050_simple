@@ -15,6 +15,7 @@
 
 #define ALS_MODE_STANDBY 0
 #define ALS_MODE_ACTIVE 1
+#define ALS_MODE_INACTIVE 0xFE
 
 /**
  * Controls the range and resolution of illuminance values
@@ -139,6 +140,13 @@ uint32_t ltr329_read_ambient(ltr329_ambient_values_t * ltr329_ambient_values);
  * @retval      uint32_t        Error code
  */
 uint32_t ltr329_config_activate(void);
+
+/**@brief Function for de-activating LTR-329ALS .
+ *
+ * @param[in]   
+ * @retval      uint32_t        Error code
+ */
+uint32_t ltr329_config_deactivate(void);
 
 /**@brief Function for detecting LTR-329ALS new data.
  *

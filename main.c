@@ -707,6 +707,42 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     }
 }
 
+static void on_connected(const ble_gap_evt_t * const p_gap_evt)
+{
+    ret_code_t  err_code;
+    uint32_t    periph_link_cnt = ble_conn_state_n_peripherals(); // Number of peripheral links.
+
+    NRF_LOG_INFO("Connection with link 0x%x/%d established.", p_gap_evt->conn_handle, periph_link_cnt);
+
+    err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
+    APP_ERROR_CHECK(err_code);
+    m_conn_handle = p_gap_evt->conn_handle;
+    m_mpu.conn_handle = p_gap_evt->conn_handle;
+    m_ltr329.conn_handle = p_gap_evt->conn_handle;
+    application_timers_start();
+    // Optional to re-start advertising if multiple connections (periph_link_cnt < Max allowed)
+    // advertising_start();
+}
+
+static void on_disconnected(ble_gap_evt_t const * const p_gap_evt)
+{
+    ret_code_t  err_code;
+    uint32_t    periph_link_cnt = ble_conn_state_n_peripherals(); // Number of peripheral links.
+
+    NRF_LOG_INFO("Connection 0x%x/%d has been disconnected. Reason: 0x%X",
+                 p_gap_evt->conn_handle, periph_link_cnt,
+                 p_gap_evt->params.disconnected.reason);
+
+    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+    APP_ERROR_CHECK(err_code);
+    m_conn_handle = BLE_CONN_HANDLE_INVALID;
+    m_mpu.conn_handle = BLE_CONN_HANDLE_INVALID;
+    m_ltr329.conn_handle = BLE_CONN_HANDLE_INVALID;
+    application_timers_stop();
+
+    // Optional to re-start advertising if multiple connections (periph_link_cnt < Max allowed)
+    // advertising_start();
+}
 
 /**@brief Function for handling BLE events.
  *
@@ -720,22 +756,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected.");
-            err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-            APP_ERROR_CHECK(err_code);
-            m_mpu.conn_handle = BLE_CONN_HANDLE_INVALID;
-            m_ltr329.conn_handle = BLE_CONN_HANDLE_INVALID;
-            application_timers_stop();
+            on_disconnected(&p_ble_evt->evt.gap_evt);
             break;
 
         case BLE_GAP_EVT_CONNECTED:
-            NRF_LOG_INFO("Connected.");
-            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(err_code);
-            m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-            m_mpu.conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-            m_ltr329.conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-            application_timers_start();
+            on_connected(&p_ble_evt->evt.gap_evt);
+
             break;
 
 #if defined(S132)
@@ -1139,12 +1165,12 @@ int main(void)
     mpu_setup();
     ltr329_init();
     ltr329_config();
-    ltr329_config_activate();
+    // ltr329_config_activate(); // Try not to start things when not needed!!
 
     // Start execution.
     NRF_LOG_INFO("%s", nrf_log_push("SensorTag9255 started."));
     NRF_LOG_FLUSH();
-    application_timers_start();
+    // application_timers_start(); // Try not to start things when not needed!!
 
     advertising_start(erase_bonds);
 
@@ -1163,12 +1189,14 @@ int main(void)
             power_manage();
             if(start_accel_update_flag == true)
             {
+                ltr329_config_activate();
                 mpu_read_accel(&accel_values);
                 mpu_read_gyro(&gyro_values);
                 mpu_read_temp(&m_temp_value);
                 if (ltr329_has_new_data()) {
                     ltr329_read_ambient(&m_ambient);
                     NRF_LOG_INFO("Ambient: Vis %d, IR %d", m_ambient.ambient_visible_value, m_ambient.ambient_ir_value);
+                    ltr329_config_deactivate();
                 }
                 delta_accel = ((accel_values.x-last_accel_values.x)*(accel_values.x-last_accel_values.x))+((accel_values.y-last_accel_values.y)*(accel_values.y-last_accel_values.y))+((accel_values.z-last_accel_values.z)*(accel_values.z-last_accel_values.z));
                 last_accel_values = accel_values;
@@ -1186,6 +1214,7 @@ int main(void)
                 if (delta_accel> 1000000)
                     nrf_gpio_pin_toggle(LED_3);
                 NRF_LOG_FLUSH();
+
             }
         }
     }
