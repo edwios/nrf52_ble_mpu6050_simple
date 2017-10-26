@@ -1178,7 +1178,7 @@ int main(void)
     gyro_values_t gyro_values;
     unsigned long delta_accel=0;
 
-    nrf_gpio_pin_toggle(LED_3);
+    nrf_gpio_pin_set(LED_3);
 
     last_accel_values.x=last_accel_values.y=last_accel_values.z=0;
     // Enter main loop.
