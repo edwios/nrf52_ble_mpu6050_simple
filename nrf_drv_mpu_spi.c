@@ -81,7 +81,19 @@ uint32_t nrf_drv_mpu_init(void)
     return nrf_drv_spi_init(&m_spi_instance, &spi_mpu_config, nrf_drv_mpu_spi_event_handler, NULL);  
 }
 
+void nrf_drv_spi_disable(void)
+{
+//    NRF_SPI_Type *p = m_spi_instance.p_registers;
 
+//    nrf_spi_disable(p);
+}
+
+void nrf_drv_spi_enable(void)
+{
+//   NRF_SPI_Type *p = m_spi_instance.p_registers;
+
+//   nrf_spi_enable(p);
+}
 
 /**@brief Function to merge a register and a buffer of data
  */

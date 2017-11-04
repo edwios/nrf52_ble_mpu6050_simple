@@ -674,6 +674,7 @@ static void sleep_mode_enter(void)
     err_code = bsp_btn_ble_sleep_mode_prepare();
     APP_ERROR_CHECK(err_code);
 
+    mpu_sleep(true);
     // Go to system-off mode (this function will not return; wakeup will cause a reset).
     err_code = sd_power_system_off();
     APP_ERROR_CHECK(err_code);
@@ -714,6 +715,7 @@ static void on_connected(const ble_gap_evt_t * const p_gap_evt)
 
     NRF_LOG_INFO("Connection with link 0x%x/%d established.", p_gap_evt->conn_handle, periph_link_cnt);
 
+    mpu_sleep(false);       // Wake up MPU
     err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
     APP_ERROR_CHECK(err_code);
     m_conn_handle = p_gap_evt->conn_handle;
@@ -733,6 +735,7 @@ static void on_disconnected(ble_gap_evt_t const * const p_gap_evt)
                  p_gap_evt->conn_handle, periph_link_cnt,
                  p_gap_evt->params.disconnected.reason);
 
+    mpu_sleep(true);    // Put MPU to sleep mode
     err_code = bsp_indication_set(BSP_INDICATE_IDLE);
     APP_ERROR_CHECK(err_code);
     m_conn_handle = BLE_CONN_HANDLE_INVALID;
@@ -1093,7 +1096,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 /**@brief  Function for initializing the UART module.
  */
 /**@snippet [UART Initialization] */
-
+/*
 static void uart_init(void)
 {
     uint32_t                     err_code;
@@ -1118,7 +1121,7 @@ static void uart_init(void)
                        err_code);
     APP_ERROR_CHECK(err_code);
 }
-
+*/
 /**@snippet [UART Initialization] */
 
 
@@ -1145,13 +1148,15 @@ int main(void)
 {
     bool erase_bonds;
 
+//    NRF_POWER->DCDCEN = 1;  
+
     // Initialize.
     LEDS_CONFIGURE(LEDS_MASK);
     LEDS_OFF(LEDS_MASK);
     log_init();
     NRF_LOG_INFO("\033[2J\033[;HMPU BLE simple example. Compiled @ %s.\r\n", nrf_log_push(__TIME__));
     NRF_LOG_FLUSH();
-    uart_init();
+//    uart_init();  NRF_UART0->ENABLE = 0;
     timers_init();
     buttons_leds_init(&erase_bonds);
     ble_stack_init();
@@ -1162,6 +1167,7 @@ int main(void)
     conn_params_init();
     peer_manager_init();
 
+    sd_power_dcdc_mode_set(1);
     mpu_setup();
     ltr329_init();
     ltr329_config();
@@ -1177,8 +1183,9 @@ int main(void)
     accel_values_t accel_values, last_accel_values;
     gyro_values_t gyro_values;
     unsigned long delta_accel=0;
-
+    mpu_sleep(true);
     nrf_gpio_pin_set(LED_3);
+//    nrf_gpio_cfg_sense_input(BUTTON1, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
 
     last_accel_values.x=last_accel_values.y=last_accel_values.z=0;
     // Enter main loop.
@@ -1189,10 +1196,22 @@ int main(void)
             power_manage();
             if(start_accel_update_flag == true)
             {
+                /*
+                NRF_SPI0->ENABLE = 1;
+                NRF_SPI1->ENABLE = 1;
+                //NRF_TWI0->ENABLE = 1;
+                //NRF_TWI1->ENABLE = 1;
+                */
                 ltr329_config_activate();
+
                 mpu_read_accel(&accel_values);
                 mpu_read_gyro(&gyro_values);
                 mpu_read_temp(&m_temp_value);
+                /*
+                NRF_SPI0->ENABLE = 0;
+                NRF_TWI0->ENABLE = 0;
+                NRF_TWI1->ENABLE = 0;
+                */
                 if (ltr329_has_new_data()) {
                     ltr329_read_ambient(&m_ambient);
                     NRF_LOG_INFO("Ambient: Vis %d, IR %d", m_ambient.ambient_visible_value, m_ambient.ambient_ir_value);
@@ -1215,6 +1234,7 @@ int main(void)
                     nrf_gpio_pin_toggle(LED_3);
                 NRF_LOG_FLUSH();
 
+                // mpu_sleep(true);
             }
         }
     }

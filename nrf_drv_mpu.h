@@ -19,6 +19,8 @@
  */
 uint32_t nrf_drv_mpu_init(void);
 	
+void nrf_drv_spi_disable(void);
+void nrf_drv_spi_enable(void);
 
 
 /**@brief Function for reading an arbitrary register

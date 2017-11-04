@@ -62,7 +62,28 @@ uint32_t mpu_init(void)
     return NRF_SUCCESS;
 }
 
+uint32_t mpu_sleep(bool sleepmode)
+{
+    uint32_t err_code;
+    uint8_t raw_value;
+    uint8_t MPU9050_SLEEPMASK=0x40;
 
+    if (!sleepmode) nrf_drv_spi_enable();
+
+    // Read MPU Power Mgmt register, OR with 0x40
+    err_code = nrf_drv_mpu_read_registers(MPU_REG_PWR_MGMT_1, &raw_value, 1);
+    if(err_code != NRF_SUCCESS) return err_code;
+
+    raw_value = raw_value & ~MPU9050_SLEEPMASK;
+    if (sleepmode) raw_value = raw_value | MPU9050_SLEEPMASK;
+    err_code = nrf_drv_mpu_write_single_register(MPU_REG_PWR_MGMT_1, raw_value);
+    if(err_code != NRF_SUCCESS) return err_code;
+
+    if (sleepmode) nrf_drv_spi_disable();
+
+    return NRF_SUCCESS;
+
+}
 
 uint32_t mpu_read_accel(accel_values_t * accel_values)
 {

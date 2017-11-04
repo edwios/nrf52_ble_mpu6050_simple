@@ -108,10 +108,10 @@ uint32_t ltr329_init(void);
 
 /**@brief Function for basic configuring of the LTR-329ALS
  * 
- * Register 80 � Control Register. This register specifies 
+ * Register 80  Control Register. This register specifies 
  * the ALS operation mode and software reset.
  * 
- * Register 85 � Configuration CONFIG. This register configures 
+ * Register 85  Configuration CONFIG. This register configures 
  * the LTR-329ALS for different measurement rates 
  *
  * @param[in]   config          Pointer to configuration structure

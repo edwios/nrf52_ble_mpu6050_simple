@@ -254,7 +254,15 @@ typedef struct
  */
 uint32_t mpu_init(void);
 
-    
+/**@brief Function for putting MPU to sleep mode
+ * 
+ * Stop gyro, accelerometer and temperature sensor signal paths.
+ * Function will stop the MPU and put it into sleep mode
+ *
+ * @retval      uint32_t        Error code
+ */
+uint32_t mpu_sleep(bool sleepmode);
+
 
 /**@brief Function for basic configuring of the MPU
  * 
