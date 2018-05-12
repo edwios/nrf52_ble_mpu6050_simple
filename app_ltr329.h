@@ -57,8 +57,9 @@ typedef enum {
 
 /**@brief Simple typedef to hold ambient values */
 typedef struct {
-    int16_t ambient_visible_value;
-    int16_t ambient_ir_value;
+    uint16_t ambient_visible_value;
+    uint16_t ambient_ir_value;
+    uint16_t ambient_lux_value;
 } ltr329_ambient_values_t;
 
 /**@brief Control register structure */
@@ -133,6 +134,12 @@ uint32_t ltr329_read_partid(ltr329_part_id_t * partid);
  */
 uint32_t ltr329_read_ambient(ltr329_ambient_values_t * ltr329_ambient_values);
 
+/**@brief Function for returning LTR-329ALS lux data.
+ *
+ * @param[in]   lux_value       Pointer to variable to hold lux data
+ * @retval      uint32_t        Error code
+ */
+// uint32_t ltr329_read_lux(uint32_t * lux);
 
 /**@brief Function for activating LTR-329ALS .
  *

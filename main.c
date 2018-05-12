@@ -93,14 +93,15 @@
 
 #define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2    /**< Reply when unsupported features are requested. */
 
-#define DEVICE_NAME                     "SensorTag9255"                         /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                     "LumiMulti"                         /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "ioStation Ltd."                        /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                       "HYP-AT1A"                              /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                 0x6c80172535                            /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                   0x10001a                                /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 
-#define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
-#define APP_ADV_TIMEOUT_IN_SECONDS      180                                     /**< The advertising timeout in units of seconds. */
+//#define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
+#define APP_ADV_INTERVAL                3000                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 1.875 s). */
+#define APP_ADV_TIMEOUT_IN_SECONDS      0                                     /**< The advertising timeout in units of seconds. */
 
 #define APP_BLE_OBSERVER_PRIO           1                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
@@ -127,7 +128,7 @@
 
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
-BLE_NUS_DEF(m_nus);                                                             /**< BLE NUS service instance. */
+//BLE_NUS_DEF(m_nus);                                                             /**< BLE NUS service instance. */
 BLE_HTS_DEF(m_hts);                                                                 /**< Structure used to identify the health thermometer service. */
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
@@ -135,8 +136,8 @@ APP_TIMER_DEF(m_timer_accel_update_id);
 #define TIMER_INTERVAL_ACCEL_UPDATE     APP_TIMER_TICKS(1000)                   // 1000 ms intervals
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
-static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
-static bool              m_hts_meas_ind_conf_pending = false;                       /**< Flag to keep track of when an indication confirmation is pending. */
+//static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;          /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
+static bool     m_hts_meas_ind_conf_pending = false;                            /**< Flag to keep track of when an indication confirmation is pending. */
 
 /*UART buffer size. */
 #define UART_TX_BUF_SIZE 32
@@ -155,11 +156,11 @@ ltr329_ambient_values_t m_ambient;
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
-    {BLE_UUID_HEALTH_THERMOMETER_SERVICE, BLE_UUID_TYPE_BLE},
+//    {BLE_UUID_HEALTH_THERMOMETER_SERVICE, BLE_UUID_TYPE_BLE},
     {BLE_UUID_MPU_SERVICE_UUID, BLE_UUID_TYPE_BLE},
     {BLE_UUID_ACCEL_CHARACTERISTC_UUID, BLE_UUID_TYPE_BLE},
     {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE},
-    {BLE_UUID_AMBIENTLIGHT_SERVICE_UUID, BLE_UUID_TYPE_BLE}
+    {BLE_UUID_ENVIRONMENTAL_SENSING_SERVICE, BLE_UUID_TYPE_BLE}
 };
 
 void timer_accel_update_handler(void * p_context)
@@ -196,7 +197,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 static void pm_evt_handler(pm_evt_t const * p_evt)
 {
     ret_code_t err_code;
-    bool       is_indication_enabled;
+    //bool       is_indication_enabled;
 
     switch (p_evt->evt_id)
     {
@@ -215,12 +216,14 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
             // Send a single temperature measurement if indication is enabled.
             // NOTE: For this to work, make sure ble_hts_on_ble_evt() is called before
             // pm_evt_handler() in ble_evt_dispatch().
+            /*
             err_code = ble_hts_is_indication_enabled(&m_hts, &is_indication_enabled);
             APP_ERROR_CHECK(err_code);
             if (is_indication_enabled)
             {
                 temperature_measurement_send();
             }
+            */
         } break;
 
         case PM_EVT_CONN_SEC_FAILED:
@@ -311,6 +314,7 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
  * @param[in] length   Length of the data.
  */
 /**@snippet [Handling the data received over BLE] */
+/*
 static void nus_data_handler(ble_nus_evt_t * p_evt)
 {
 
@@ -340,6 +344,7 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
     }
 
 }
+*/
 /**@snippet [Handling the data received over BLE] */
 
 
@@ -474,9 +479,11 @@ static void services_init(void)
     NRF_LOG_DEBUG("Initialising Services"); NRF_LOG_FLUSH();
     memset(&nus_init, 0, sizeof(nus_init));
 
+/*
     nus_init.data_handler = nus_data_handler;
     err_code = ble_nus_init(&m_nus, &nus_init);
     APP_ERROR_CHECK(err_code);
+*/
     ble_mpu_service_init(&m_mpu);
     ble_ltr329_service_init(&m_ltr329);
     
@@ -495,8 +502,8 @@ static void services_init(void)
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&hts_init.hts_temp_type_attr_md.read_perm);
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&hts_init.hts_temp_type_attr_md.write_perm);
 
-    err_code = ble_hts_init(&m_hts, &hts_init);
-    APP_ERROR_CHECK(err_code);
+//    err_code = ble_hts_init(&m_hts, &hts_init);
+//    APP_ERROR_CHECK(err_code);
 
     // Initialize Device Information Service.
     memset(&dis_init, 0, sizeof(dis_init));
@@ -667,14 +674,15 @@ static void sleep_mode_enter(void)
 {
     ret_code_t err_code;
 
-    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(err_code);
+    ///err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+    ///APP_ERROR_CHECK(err_code);
 
     // Prepare wakeup buttons.
     err_code = bsp_btn_ble_sleep_mode_prepare();
     APP_ERROR_CHECK(err_code);
 
     mpu_sleep(true);
+    ltr329_config_deactivate();
     // Go to system-off mode (this function will not return; wakeup will cause a reset).
     err_code = sd_power_system_off();
     APP_ERROR_CHECK(err_code);
@@ -689,18 +697,21 @@ static void sleep_mode_enter(void)
  */
 static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 {
-    ret_code_t err_code;
+    ///ret_code_t err_code;
 
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
-            NRF_LOG_INFO("Fast advertising.");
-            err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
-            APP_ERROR_CHECK(err_code);
+            NRF_LOG_DEBUG("Fast advertising."); NRF_LOG_FLUSH();
+            ///err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
+            ///APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_ADV_EVT_IDLE:
-            sleep_mode_enter();
+            NRF_LOG_DEBUG("Advertising Event Idle."); NRF_LOG_FLUSH();
+            // sleep_mode_enter();  // do not sleep when fast advertise is done (180s)
+            ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_SLOW);
+            APP_ERROR_CHECK(err_code);
             break;
 
         default:
@@ -710,17 +721,19 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 
 static void on_connected(const ble_gap_evt_t * const p_gap_evt)
 {
-    ret_code_t  err_code;
+    ///ret_code_t  err_code;
     uint32_t    periph_link_cnt = ble_conn_state_n_peripherals(); // Number of peripheral links.
 
     NRF_LOG_INFO("Connection with link 0x%x/%d established.", p_gap_evt->conn_handle, periph_link_cnt);
 
     mpu_sleep(false);       // Wake up MPU
-    err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-    APP_ERROR_CHECK(err_code);
+    ltr329_config_activate();
+    ///err_code = bsp_indication_set(BSP_INDICATE_SENT_OK);
+    ///APP_ERROR_CHECK(err_code);
     m_conn_handle = p_gap_evt->conn_handle;
     m_mpu.conn_handle = p_gap_evt->conn_handle;
     m_ltr329.conn_handle = p_gap_evt->conn_handle;
+    start_accel_update_flag = true;
     application_timers_start();
     // Optional to re-start advertising if multiple connections (periph_link_cnt < Max allowed)
     // advertising_start();
@@ -731,17 +744,18 @@ static void on_disconnected(ble_gap_evt_t const * const p_gap_evt)
     ret_code_t  err_code;
     uint32_t    periph_link_cnt = ble_conn_state_n_peripherals(); // Number of peripheral links.
 
-    NRF_LOG_INFO("Connection 0x%x/%d has been disconnected. Reason: 0x%X",
-                 p_gap_evt->conn_handle, periph_link_cnt,
-                 p_gap_evt->params.disconnected.reason);
-
-    mpu_sleep(true);    // Put MPU to sleep mode
-    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(err_code);
+    start_accel_update_flag = false;
     m_conn_handle = BLE_CONN_HANDLE_INVALID;
     m_mpu.conn_handle = BLE_CONN_HANDLE_INVALID;
     m_ltr329.conn_handle = BLE_CONN_HANDLE_INVALID;
     application_timers_stop();
+    mpu_sleep(true);    // Put MPU to sleep mode
+    ltr329_config_deactivate();
+    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+    APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("Connection 0x%x/%d has been disconnected. Reason: 0x%X",
+                 p_gap_evt->conn_handle, periph_link_cnt,
+                 p_gap_evt->params.disconnected.reason);
 
     // Optional to re-start advertising if multiple connections (periph_link_cnt < Max allowed)
     // advertising_start();
@@ -1047,6 +1061,7 @@ static void advertising_start(bool erase_bonds)
  *          'new line' '\n' (hex 0x0A) or if the string has reached the maximum data length.
  */
 /**@snippet [Handling the data received over UART] */
+/**
 void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
@@ -1090,6 +1105,9 @@ void uart_event_handle(app_uart_evt_t * p_event)
             break;
     }
 }
+
+**/
+
 /**@snippet [Handling the data received over UART] */
 
 
@@ -1156,9 +1174,10 @@ int main(void)
     log_init();
     NRF_LOG_INFO("\033[2J\033[;HMPU BLE simple example. Compiled @ %s.\r\n", nrf_log_push(__TIME__));
     NRF_LOG_FLUSH();
-//    uart_init();  NRF_UART0->ENABLE = 0;
+//    uart_init();  NRF_UART0->ENABLE = 1;
     timers_init();
     buttons_leds_init(&erase_bonds);
+    bsp_indication_set(BSP_INDICATE_CONNECTED);
     ble_stack_init();
     gap_params_init();
     gatt_init();
@@ -1174,7 +1193,7 @@ int main(void)
     // ltr329_config_activate(); // Try not to start things when not needed!!
 
     // Start execution.
-    NRF_LOG_INFO("%s", nrf_log_push("SensorTag9255 started."));
+    NRF_LOG_DEBUG("%s", nrf_log_push("SensorTag9255 started."));
     NRF_LOG_FLUSH();
     // application_timers_start(); // Try not to start things when not needed!!
 
@@ -1184,10 +1203,16 @@ int main(void)
     gyro_values_t gyro_values;
     unsigned long delta_accel=0;
     mpu_sleep(true);
-    nrf_gpio_pin_set(LED_3);
+    ltr329_config_deactivate();
+    //nrf_gpio_pin_set(LED_3);
 //    nrf_gpio_cfg_sense_input(BUTTON1, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
 
     last_accel_values.x=last_accel_values.y=last_accel_values.z=0;
+    bsp_indication_set(BSP_INDICATE_IDLE);
+
+    NRF_LOG_DEBUG("%s", nrf_log_push("Enter main loop"));
+    NRF_LOG_FLUSH();
+
     // Enter main loop.
     for (;;)
     {
@@ -1196,17 +1221,17 @@ int main(void)
             power_manage();
             if(start_accel_update_flag == true)
             {
+                //mpu_sleep(false);
                 /*
                 NRF_SPI0->ENABLE = 1;
                 NRF_SPI1->ENABLE = 1;
                 //NRF_TWI0->ENABLE = 1;
                 //NRF_TWI1->ENABLE = 1;
                 */
-                ltr329_config_activate();
-
                 mpu_read_accel(&accel_values);
                 mpu_read_gyro(&gyro_values);
                 mpu_read_temp(&m_temp_value);
+
                 /*
                 NRF_SPI0->ENABLE = 0;
                 NRF_TWI0->ENABLE = 0;
@@ -1215,26 +1240,27 @@ int main(void)
                 if (ltr329_has_new_data()) {
                     ltr329_read_ambient(&m_ambient);
                     NRF_LOG_INFO("Ambient: Vis %d, IR %d", m_ambient.ambient_visible_value, m_ambient.ambient_ir_value);
-                    ltr329_config_deactivate();
+                    ble_ltr329_update(&m_ltr329, &m_ambient);
                 }
                 delta_accel = ((accel_values.x-last_accel_values.x)*(accel_values.x-last_accel_values.x))+((accel_values.y-last_accel_values.y)*(accel_values.y-last_accel_values.y))+((accel_values.z-last_accel_values.z)*(accel_values.z-last_accel_values.z));
                 last_accel_values = accel_values;
 //                NRF_LOG_INFO("\033[2J\033[;HAccel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
-                NRF_LOG_INFO("Accel: %05d, %05d, %05d\r\n", accel_values.x, accel_values.y, accel_values.z);
+                NRF_LOG_INFO("Accel: %05d, %05d, %05d", accel_values.x, accel_values.y, accel_values.z);
                 NRF_LOG_INFO("Delta: %d", delta_accel); 
-                NRF_LOG_INFO("Gyro: %05d, %05d, %05d\r\n", gyro_values.x, gyro_values.y, gyro_values.z);
-                NRF_LOG_INFO("Temperature: %05d\r\n", m_temp_value);
+                NRF_LOG_INFO("Gyro: %05d, %05d, %05d", gyro_values.x, gyro_values.y, gyro_values.z);
+                NRF_LOG_INFO("Temperature: %05d\n", m_temp_value);
 //                NRF_LOG_INFO("Accel: %02x, %02x, %02x, %02x, %02x, %02x\r\n", (uint8_t)(accel_values.x >> 8), (uint8_t)accel_values.x, (uint8_t)(accel_values.y >> 8), (uint8_t)accel_values.y, (uint8_t)(accel_values.z >> 8), (uint8_t)accel_values.z);
                 NRF_LOG_FLUSH();
                 ble_mpu_update(&m_mpu, &accel_values);
-                ble_ltr329_update(&m_ltr329, &m_ambient);
+                ble_ltr329_temperature_update(&m_ltr329, &m_temp_value);
                 start_accel_update_flag = false;
-                nrf_gpio_pin_toggle(LED_1);
-                if (delta_accel> 1000000)
-                    nrf_gpio_pin_toggle(LED_3);
+                //bsp_indication_set(BSP_INDICATE_IDLE);
+                //nrf_gpio_pin_toggle(LED_1);
+                //if (delta_accel> 1000000)
+                //    nrf_gpio_pin_toggle(LED_3);
                 NRF_LOG_FLUSH();
 
-                // mpu_sleep(true);
+                //mpu_sleep(true); // Somehow enable this will cause the mpu not reporting readings
             }
         }
     }

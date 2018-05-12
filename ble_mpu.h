@@ -13,7 +13,7 @@
 #include "app_mpu.h"
 #include "ble_common_items.h"
 
-#define BLE_UUID_MPU_SERVICE_UUID                0xF00D // Just a random, but recognizable value
+#define BLE_UUID_MPU_SERVICE_UUID                  0xF00D // Just a random, but recognizable value
 #define BLE_UUID_ACCEL_CHARACTERISTC_UUID          0xACCE // Just a random, but recognizable value
 
 typedef struct

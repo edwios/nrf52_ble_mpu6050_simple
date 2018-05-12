@@ -25,7 +25,7 @@ uint32_t ltr329_config(void)
     uint8_t measurement_config = 0;
 
     NRF_LOG_DEBUG("Configurating LTR-329ALS"); NRF_LOG_FLUSH();
-    control_config |= ALS_MODE_STANDBY;      // Standby mode
+    control_config |= ALS_MODE_ACTIVE;      // Standby mode
     control_config |= LTR329_GAIN_1X << 2;
     err_code = nrf_drv_ltr329_write_single_register(ALS_CONTR, control_config);
     if(err_code != NRF_SUCCESS) return err_code;
@@ -81,6 +81,10 @@ uint32_t ltr329_read_ambient(ltr329_ambient_values_t * ltr329_ambient_values)
     uint32_t err_code;
     uint8_t visible_values[2];
     uint8_t ir_values[2];
+    uint16_t t;
+    uint32_t ratio;
+    uint32_t l=0;
+
     err_code = nrf_drv_ltr329_read_registers(ALS_DATA_CH1, visible_values, 2);
     if(err_code != NRF_SUCCESS) return err_code;
 
@@ -94,10 +98,51 @@ uint32_t ltr329_read_ambient(ltr329_ambient_values_t * ltr329_ambient_values)
     ltr329_ambient_values->ambient_visible_value = visible;
     ltr329_ambient_values->ambient_ir_value = ir;
 
+    t = ir + visible;
+    if (t > 0) {
+        ratio = (visible * 1000) / t;
+        if(ratio < 450) {
+            l = (ir * 17743 + visible * 11059);
+        } else if (ratio < 640 && ratio >= 450) {
+            l = (ir * 42785 - visible * 19548);
+        } else if (ratio < 850 && ratio >= 640) {
+            l = (ir * 5926 + visible * 1185);
+        }
+        ltr329_ambient_values->ambient_lux_value = l / 50;
+    } else {
+        ltr329_ambient_values->ambient_lux_value = 0;
+    }
+
     return NRF_SUCCESS;
 }
 
+/*
+uint32_t ltr329_read_lux(uint32_t * lux)
+{
+    uint32_t err_code;
+    ltr329_ambient_values_t m_ambient;
+    uint16_t t;
+    uint32_t l=0, ratio;
 
+    err_code = ltr329_read_ambient(&m_ambient);
+    if (err_code != NRF_SUCCESS) return err_code;
+    t = m_ambient.ambient_ir_value + m_ambient.ambient_visible_value;
+    if (t > 0) {
+        ratio = (m_ambient.ambient_visible_value * 1000) / t;
+        if (ratio < 450) {
+            l = (m_ambient.ambient_ir_value * 17743 + m_ambient.ambient_visible_value * 11059);
+        } else if (ratio < 640 && ratio >= 450) {
+            l = (m_ambient.ambient_ir_value * 42785 - m_ambient.ambient_visible_value * 19548);
+        } else if (ratio < 850 && ratio >= 640) {
+            l = (m_ambient.ambient_ir_value * 5926 + m_ambient.ambient_visible_value * 1185);
+        }
+        *lux = l / 50;
+    } else {
+        *lux = 0;
+    }
+    return NRF_SUCCESS;
+}
+*/
 
 uint32_t ltr329_read_partid(ltr329_part_id_t * partid)
 {

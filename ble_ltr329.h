@@ -12,10 +12,14 @@
 #include "ble_srv_common.h"
 #include "app_ltr329.h"
 #include "ble_common_items.h"
+#include "app_mpu.h"
 
-#define BLE_UUID_AMBIENTLIGHT_SERVICE_UUID         0xF00E // Just a random, but recognizable value
+#define BLE_UUID_AMBIENTLIGHT_SERVICE_UUID         0x181A // Environmental sensor
+#define BLE_UUID_IRRADIANCE_CHARACTERISTC_UUID     0x2A77 // Irradiance
+#define BLE_UUID_TEMPERATURE_CHARACTERISTC_UUID    0x2A6E // Temperature
 #define BLE_UUID_VISIBLE_CHARACTERISTC_UUID        0x815B // Just a random, but recognizable value
 #define BLE_UUID_IR_CHARACTERISTC_UUID             0x815C // Just a random, but recognizable value
+#define BLE_UUID_ENVIRONMENTAL_SENSING_SERVICE     0x181A /**< Environmental Sensing service UUID. */
 
 typedef struct
 {
@@ -23,6 +27,8 @@ typedef struct
     uint16_t                    service_handle; /**< Handle of ble Service (as provided by the BLE stack). */
     ble_gatts_char_handles_t    visible_char_handles;   /**< Handles related to the our new characteristic. */
     ble_gatts_char_handles_t    ir_char_handles;   /**< Handles related to the our new characteristic. */
+    ble_gatts_char_handles_t    lux_char_handles;
+    ble_gatts_char_handles_t    temp_char_handles;
 }ble_ltr329_t;
 
 /**@brief Function for handling BLE Stack events related to LTR-329ALS service and characteristic.
@@ -48,5 +54,6 @@ void ble_ltr329_service_init(ble_ltr329_t * p_ltr329);
  * @param[in]   characteristic_value     New characteristic value.
  */
 void ble_ltr329_update(ble_ltr329_t *p_ltr329, ltr329_ambient_values_t * ltr329_ambient_values);
+void ble_ltr329_temperature_update(ble_ltr329_t *p_ltr329, temp_value_t * temperature_value);
 
 #endif  /* _ BLE_LTR329_SERVICE_H__ */

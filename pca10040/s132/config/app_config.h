@@ -7,7 +7,7 @@
 #define GPIOTE_ENABLED 1
 #define FDS_ENABLED 1
 #define PEER_MANAGER_ENABLED 1
-#define BLE_NUS_ENABLED 1
+#define BLE_NUS_ENABLED 0
 #define NRF_FSTORAGE_ENABLED 1
 
 #define BLE_HTS_ENABLED 1
@@ -30,8 +30,8 @@
 #define TIMER0_ENABLED 1
 #define APP_TIMER_ENABLED 1
 
-#define APP_UART_ENABLED 1
-#define UART_ENABLED 1
+#define APP_UART_ENABLED 0
+#define UART_ENABLED 0
 #define APP_FIFO_ENABLED 1
 
 #define BUTTON_ENABLED 1
@@ -42,12 +42,13 @@
 #define NRF_LOG_BACKEND_UART_ENABLED 0		// Must be disabled or uart_init() will fail with err_code 8
 #define NRF_LOG_BACKEND_RTT_ENABLED 1
 #define NRF_LOG_ENABLED 1
-#define NRF_LOG_DEFERRED 0
+#define NRF_LOG_DEFERRED 1
 #define NRF_SDH_BLE_LOG_ENABLED 1
 #define NRF_SDH_BLE_VS_UUID_COUNT 5			// Must observe the number of vendor specific services
 #define NRF_SDH_LOG_ENABLED 1
 #define NRF_SDH_SOC_LOG_ENABLED 1
-#define NRF_LOG_DEFAULT_LEVEL 1
+#define NRF_LOG_DEFAULT_LEVEL 4
+#define NRF_LOG_FILTERS_ENABLED 0
 
 #define NRF_SDH_BLE_ENABLED 1
 #define NRF_SDH_ENABLED 1
